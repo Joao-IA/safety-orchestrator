@@ -44,6 +44,11 @@ Toda parte específica do ambiente está isolada em `src/client.py`:
 `_extract_flag_category`, `_is_safeguard_flag`, `_served_model`. Ajuste os campos
 conforme o contrato real da sua API (o erro observado traz `Details: [cyber]` + Request ID).
 
+## Documentação da pesquisa
+
+Objetivo, escolha de benchmarks (CASTLE, AutoPenBench e alternativas), análise do CASTLE
+Score e trabalhos relacionados: ver [`docs/`](docs/README.md).
+
 ## Próximo (Passo 3 — orquestrador)
 
 Aqui entra a decisão de linguagem do Juliet (**C/C++** recomendado): o parser de
