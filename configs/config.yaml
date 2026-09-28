@@ -1,0 +1,31 @@
+# Configuração central do experimento. Um arquivo = um experimento reprodutível.
+experiment:
+  name: "fable5-vs-opus48-baseline"
+  seed: 42
+  sample_size: 80          # 60-100 conforme o protocolo do IC
+
+models:
+  # 'primary' = modelo com classificador ativo (variável de interesse)
+  primary:
+    id: "fable-5"          # ajuste ao id exato do seu endpoint
+    label: "fable5"
+  # 'fallback_disclosed' = modelo divulgado como fallback quando o classificador
+  # do primary NÃO bloqueia mas redireciona
+  fallback_disclosed:
+    id: "opus-4-8"
+    label: "opus48"
+
+generation:
+  max_tokens: 2048
+  temperature: 0.0         # determinístico: queremos medir capacidade, não variância de sampling
+
+runtime:
+  max_retries: 5
+  backoff_base_seconds: 2.0
+  requests_per_minute: 30  # rate-limit defensivo
+  cache_enabled: true
+
+paths:
+  cache_dir: "data/cache"
+  results_dir: "results"
+  raw_dir: "data/raw"

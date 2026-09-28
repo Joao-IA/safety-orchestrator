@@ -1,64 +1,56 @@
-# safety-orchestrator
+# LLM Safety-Classifier Benchmark — Infra (Passo 1)
 
-> ⚠️ **Rascunho.** Este README é um esqueleto inicial e será reescrito conforme o projeto tomar forma.
+Infraestrutura de experimento para medir o **custo de capacidade do classificador
+de segurança do Fable 5** vs. Opus 4.8 (fallback divulgado), em tarefas defensivas
+de identificação de vulnerabilidades.
 
-Orquestrador de camadas de segurança para aplicações baseadas em LLMs — coordena validações,
-políticas e guardrails antes e depois de cada interação com o modelo.
+## Postura metodológica (importante)
 
-## Status
+O **disparo do classificador é a variável dependente**, não um obstáculo.
+Portanto o código, por design:
 
-Em fase inicial. Ainda não há API pública estável; espere mudanças sem aviso.
+- **não faz retry** quando o classificador bloqueia (`FLAGGED` é uma observação);
+- **não reescreve prompts** para evitar o flag — isso destruiria a medição;
+- registra, por chamada, o estado do classificador: `normal / fallback / flagged / error`.
 
-## Requisitos
+Todos os prompts são **defensivos** (identificar/classificar CWE, causa-raiz, correção).
+**Nunca** se pede geração de exploit funcional.
 
-- Python 3.11+ *(a confirmar)*
+## Estrutura
 
-## Instalação
+```
+configs/config.yaml     # um arquivo = um experimento reprodutível (seed, modelos, sample)
+src/config.py           # carrega config + API key (.env)
+src/models.py           # ClassifierState + CallResult (dado primário, serializável)
+src/client.py           # 1 chamada -> classifica em normal/fallback/flagged/error
+src/cache.py            # cache em disco por (item, modelo, prompt): idempotência
+src/cost.py             # tokens/custo por execução
+src/runner.py           # engine: cache + client + custo (consumida pelo passo 3)
+scripts/smoke_test.py   # valida a infra SEM gastar API
+```
+
+## Setup
 
 ```bash
-git clone https://github.com/Joao-IA/safety-orchestrator.git
-cd safety-orchestrator
-
-python -m venv .venv
-source .venv/bin/activate
-
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
+cp .env.example .env      # e preencha ANTHROPIC_API_KEY
+python -m scripts.smoke_test   # deve imprimir "SMOKE TEST OK"
 ```
 
-## Uso
+## Pontos a ajustar ao seu endpoint
 
-```bash
-# a definir
-```
+Toda parte específica do ambiente está isolada em `src/client.py`:
+`_extract_flag_category`, `_is_safeguard_flag`, `_served_model`. Ajuste os campos
+conforme o contrato real da sua API (o erro observado traz `Details: [cyber]` + Request ID).
 
-## Configuração
+## Próximo (Passo 3 — orquestrador)
 
-Copie `.env.example` para `.env` e preencha as variáveis necessárias.
-Nenhum segredo deve ser commitado — veja o `.gitignore`.
+Aqui entra a decisão de linguagem do Juliet (**C/C++** recomendado): o parser de
+ingestão é a única parte específica de linguagem.
 
-## Estrutura do projeto
-
-```
-safety-orchestrator/
-├── src/            # código da aplicação
-├── tests/          # testes automatizados
-└── docs/           # documentação
-```
-
-## Testes
-
-```bash
-pytest
-```
-
-## Roadmap
-
-- [ ] Definir o escopo das políticas de segurança
-- [ ] Desenhar a interface do orquestrador
-- [ ] Implementar os primeiros guardrails
-- [ ] Cobertura de testes
-- [ ] Documentação de uso
-
-## Licença
-
-Distribuído sob a [Licença Apache 2.0](LICENSE).
+- ingestão do Juliet: parsear pares good/bad → `item_id`, código, CWE ID (ground truth);
+  **good e bad como amostras separadas**;
+- fatia complementar de CVE-corrigido/CTF para a métrica de trigger-rate realista;
+- template de prompt defensivo; `runner.run_both_models(item_id, prompt)`;
+- scoring contra ground truth + agregação das 3 métricas core.
